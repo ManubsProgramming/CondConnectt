@@ -1,0 +1,143 @@
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    perfil VARCHAR(20) NOT NULL CHECK (perfil IN ('MORADOR', 'PORTEIRO', 'SINDICO')),
+    status BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE unidades (
+    id SERIAL PRIMARY KEY,
+    bloco VARCHAR(10),
+    numero VARCHAR(10) NOT NULL,
+    proprietario_id INT,
+    CONSTRAINT fk_proprietario
+        FOREIGN KEY (proprietario_id)
+        REFERENCES usuarios(id)
+);
+
+CREATE TABLE moradores (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    unidade_id INT NOT NULL,
+    telefone VARCHAR(20),
+
+    CONSTRAINT fk_morador_usuario
+        FOREIGN KEY (usuario_id)
+        REFERENCES usuarios(id),
+
+    CONSTRAINT fk_morador_unidade
+        FOREIGN KEY (unidade_id)
+        REFERENCES unidades(id)
+);
+CREATE TABLE ocorrencias (
+    id SERIAL PRIMARY KEY,
+    morador_id INT NOT NULL,
+    titulo VARCHAR(100) NOT NULL,
+    descricao TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'ABERTA'
+        CHECK (status IN ('ABERTA', 'EM_ANALISE', 'RESOLVIDA')),
+    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_ocorrencia_morador
+        FOREIGN KEY (morador_id)
+        REFERENCES moradores(id)
+);
+CREATE TABLE areas_comuns (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(50) NOT NULL,
+    descricao TEXT,
+    capacidade INT
+);
+CREATE TABLE reservas_area_comum (
+    id SERIAL PRIMARY KEY,
+    morador_id INT NOT NULL,
+    area_id INT NOT NULL,
+    data_reserva DATE NOT NULL,
+    horario VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'APROVADA', 'CANCELADA')),
+
+    CONSTRAINT fk_reserva_morador
+        FOREIGN KEY (morador_id)
+        REFERENCES moradores(id),
+
+    CONSTRAINT fk_reserva_area
+        FOREIGN KEY (area_id)
+        REFERENCES areas_comuns(id)
+);
+CREATE TABLE visitantes (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    documento VARCHAR(50),
+    unidade_id INT NOT NULL,
+
+    CONSTRAINT fk_visitante_unidade
+        FOREIGN KEY (unidade_id)
+        REFERENCES unidades(id)
+);
+CREATE TABLE controle_acesso (
+    id SERIAL PRIMARY KEY,
+    visitante_id INT NOT NULL,
+    porteiro_id INT NOT NULL,
+    entrada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    saida TIMESTAMP,
+
+    CONSTRAINT fk_acesso_visitante
+        FOREIGN KEY (visitante_id)
+        REFERENCES visitantes(id),
+
+    CONSTRAINT fk_acesso_porteiro
+        FOREIGN KEY (porteiro_id)
+        REFERENCES usuarios(id)
+);
+CREATE TABLE encomendas (
+    id SERIAL PRIMARY KEY,
+    morador_id INT NOT NULL,
+    porteiro_id INT NOT NULL,
+    descricao VARCHAR(100),
+    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    retirada BOOLEAN DEFAULT FALSE,
+
+    CONSTRAINT fk_encomenda_morador
+        FOREIGN KEY (morador_id)
+        REFERENCES moradores(id),
+
+    CONSTRAINT fk_encomenda_porteiro
+        FOREIGN KEY (porteiro_id)
+        REFERENCES usuarios(id)
+);
+-----------ADM/SINDICO-----------
+CREATE TABLE comunicados (
+    id SERIAL PRIMARY KEY,
+    sindico_id INT NOT NULL,
+    titulo VARCHAR(100) NOT NULL,
+    mensagem TEXT NOT NULL,
+    data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_comunicado_sindico
+        FOREIGN KEY (sindico_id)
+        REFERENCES usuarios(id)
+);
+CREATE TABLE regras_area_comum (
+    id SERIAL PRIMARY KEY,
+    area_id INT NOT NULL,
+    descricao TEXT NOT NULL,
+    limite_pessoas INT,
+
+    CONSTRAINT fk_regra_area
+        FOREIGN KEY (area_id)
+        REFERENCES areas_comuns(id)
+);
+
+
+
+
+ @Bean securityFilterChain(http)
+                .requestMatchers("/api/moradores/**").hasAnyRole("MORADOR", "SINDICO")
+                .requestMatchers("/api/reservas/**").hasAnyRole("MORADOR", "SINDICO")
+                .requestMatchers("/api/comunicados/**").hasAnyRole("MORADOR", "SINDICO")
+                .requestMatchers("/api/controle-acesso/**").hasAnyRole("PORTEIRO", "SINDICO")
+                .requestMatchers("/api/encomendas/**").hasAnyRole("PORTEIRO", "SINDICO")
+                .requestMatchers("/api/visitantes/**").hasAnyRole("MORADOR", "SINDICO")
